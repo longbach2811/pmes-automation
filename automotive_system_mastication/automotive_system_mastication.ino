@@ -1,14 +1,15 @@
 #include <EEPROM.h>
+#include <Servo.h>
 
 /*
         LED ARRANGEMENT
-       -----------------
-      |       (1)       |
-       -----------------
+      -----------------
+     |       (1)       |
+      -----------------
    ___                     ___
   |   |                   |   |
   |   |                   |   |
-  |(2)|        (5)        |(4)| 
+  |(2)|                   |(4)| 
   |   |                   |   | 
   |___|                   |___|
       ------------------
@@ -39,10 +40,13 @@
 
 #define ON_OFF_LED_5 38
 
-// Stepper motor
+// Stepper motor pins
 #define PUL_PIN 41
 #define DIR_PIN 39
 #define PUL_PER_MM 50
+
+// Servo pins
+#define SERVO_PIN 8
 
 int toggle_pins[5][4] = {
   {ON_OFF_LED_1, DOWN_LED_1, MODE_LED_1, UP_LED_1},
@@ -54,6 +58,10 @@ int toggle_pins[5][4] = {
 
 static int current_mm = 0;
 static bool motor_busy = false;
+
+Servo angleServo;
+static int angle = 0;
+
 char buffer[128];
 
 // ---------------- LED ----------------
@@ -95,6 +103,16 @@ void move_motor_to_position(int target_mm) {
   Serial.println("OK");
 }
 
+// ---------------- SERVO ----------------
+void rotate_angle(int angle)
+{
+    // if (angle < 0) angle = 0;
+    // if (angle > 180) angle = 180;
+
+    angleServo.write(angle);
+    Serial.println("OK");
+}
+
 // ---------------- LED CMD ----------------
 void handler_led_cmd() {
   for (int r = 0; r < 5; r++) {
@@ -126,6 +144,17 @@ void handler_motor_cmd() {
   move_motor_to_position(target);
 }
 
+// ---------------- SERVO CMD ----------------
+void handler_servo_cmd(){
+    char *token = strtok(NULL, " ");
+  if (token == NULL) {
+    Serial.println("ERR arg");
+    return;
+  }
+  int angle = atoi(token);
+  rotate_angle(angle);
+}
+
 // ---------------- COMMAND PARSER ----------------
 void handler_cmd(char *cmd) {
   char *token = strtok(cmd, " ");
@@ -138,6 +167,8 @@ void handler_cmd(char *cmd) {
     handler_motor_cmd();
   } else if (strcmp(token, "led") == 0) {
     handler_led_cmd();
+  } else if (strcmp(token, "servo") == 0) {
+    handler_servo_cmd();
   } else if (strcmp(token, "pos") == 0) {
     Serial.print("POS ");
     Serial.println(current_mm);
@@ -168,6 +199,8 @@ void setup() {
 
   pinMode(PUL_PIN, OUTPUT);
   pinMode(DIR_PIN, OUTPUT);
+
+  angleServo.attach(SERVO_PIN);
 
   EEPROM.get(0, current_mm);
 
